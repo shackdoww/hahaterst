@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simple Calculator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: #eef2f7;
+      color: #182334;
+      font-family: system-ui, sans-serif;
+    }
+    main {
+      width: min(100%, 350px);
+      padding: 24px;
+      border-radius: 24px;
+      background: #fff;
+      box-shadow: 0 16px 48px #26354b18;
+    }
+    h1 { margin: 0 0 20px; font-size: 1.25rem; font-weight: 600; }
+    output {
+      display: block;
+      width: 100%;
+      padding: 24px 16px;
+      margin-bottom: 16px;
+      border-radius: 12px;
+      background: #f1f4f8;
+      text-align: right;
+      font-size: clamp(1.5rem, 7vw, 2rem);
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+    .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    button {
+      min-width: 0;
+      min-height: 56px;
+      border: 0;
+      border-radius: 12px;
+      background: #f1f4f8;
+      color: inherit;
+      font: 500 1.25rem system-ui, sans-serif;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    button:hover { background: #e2e8f0; }
+    button:active { transform: translateY(1px); }
+    button:focus-visible { outline: 3px solid #4263eb; outline-offset: 2px; }
+    .operator { background: #e9edff; color: #354fc4; }
+    .wide { grid-column: span 2; }
+    .equals { background: #4263eb; color: white; }
+    .equals:hover { background: #354fc4; }
+    .help { margin: 18px 0 0; color: #64748b; font-size: .75rem; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <main aria-label="Calculator">
+    <h1>Simple Calculator</h1>
+    <output id="display" aria-label="Result" aria-live="polite" aria-atomic="true">0</output>
+    <div class="keypad">
+      <button class="wide" data-key="clear" aria-label="Clear">C</button>
+      <button data-key="backspace" aria-label="Backspace">⌫</button>
+      <button class="operator" data-key="/" aria-label="Divide">÷</button>
+      <button data-key="7">7</button>
+      <button data-key="8">8</button>
+      <button data-key="9">9</button>
+      <button class="operator" data-key="*" aria-label="Multiply">×</button>
+      <button data-key="4">4</button>
+      <button data-key="5">5</button>
+      <button data-key="6">6</button>
+      <button class="operator" data-key="-" aria-label="Subtract">−</button>
+      <button data-key="1">1</button>
+      <button data-key="2">2</button>
+      <button data-key="3">3</button>
+      <button class="operator" data-key="+">+</button>
+      <button class="wide" data-key="0">0</button>
+      <button data-key=".">.</button>
+      <button class="equals" data-key="=">=</button>
+    </div>
+    <p class="help">Use the buttons or your keyboard. Enter = equals,<br>Esc = clear, Backspace = delete. Operations run in order.</p>
+  </main>
+  <script>
+    const display = document.getElementById('display');
+    let entry = '0';
+    let stored = null;
+    let operator = null;
+    let freshEntry = false;
+
+    function reset() {
+      entry = '0';
+      stored = null;
+      operator = null;
+      freshEntry = false;
+    }
+
+    function calculate() {
+      const right = Number(entry);
+      let result;
+      switch (operator) {
+        case '+': result = stored + right; break;
+        case '-': result = stored - right; break;
+        case '*': result = stored * right; break;
+        case '/': result = right === 0 ? NaN : stored / right; break;
+      }
+      // Keep common decimal calculations readable (for example, 0.1 + 0.2).
+      entry = Number.isFinite(result) ? String(Number(result.toPrecision(12))) : 'Error';
+      stored = null;
+      operator = null;
+    }
+
+    function input(key) {
+      if (key === 'clear') {
+        reset();
+      } else if (key === 'backspace') {
+        if (entry === 'Error') reset();
+        else if (!freshEntry) entry = entry.length > 1 ? entry.slice(0, -1) : '0';
+        else if (operator === null) {
+          freshEntry = false;
+          entry = entry.length > 1 ? entry.slice(0, -1) : '0';
+        }
+        if (entry === '-') entry = '0';
+      } else if (/^[0-9.]$/.test(key)) {
+        if (entry === 'Error') reset();
+        if (freshEntry) { entry = '0'; freshEntry = false; }
+        if (key === '.') {
+          if (!entry.includes('.')) entry += '.';
+        } else if (entry.replace(/[^0-9]/g, '').length < 12) {
+          entry = entry === '0' ? key : entry + key;
+        }
+      } else if (['+', '-', '*', '/'].includes(key) && entry !== 'Error') {
+        if (operator !== null && !freshEntry) calculate();
+        if (entry !== 'Error') {
+          stored = Number(entry);
+          operator = key;
+          freshEntry = true;
+        }
+      } else if (key === '=' && operator !== null && !freshEntry && entry !== 'Error') {
+        calculate();
+        freshEntry = true;
+      }
+      display.textContent = entry;
+    }
+
+    document.querySelector('.keypad').addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (button) input(button.dataset.key);
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const aliases = { Enter: '=', Escape: 'clear', Delete: 'clear', Backspace: 'backspace' };
+      const key = aliases[event.key] || event.key;
+      if (/^[0-9.+*/=\-]$/.test(key) || key === 'clear' || key === 'backspace') {
+        event.preventDefault();
+        input(key);
+      }
+    });
+  </script>
+</body>
+</html>
